@@ -1,0 +1,13 @@
+{
+  "name": "stateful-notes-server",
+  "version": "1.4.0",
+  "private": true,
+  "description": "A 2025-11-25 (stateful, sessionful) MCP server on the TypeScript SDK v2 packages, as the official v1-to-v2 codemod leaves it. Statelint's demo migrates it to the stateless 2026-07-28 entry points.",
+  "type": "module",
+  "dependencies": {
+    "@modelcontextprotocol/node": "^2.1.2",
+    "@modelcontextprotocol/server": "^2.4.0",
+    "express": "^5.1.0",
+    "zod": "^4.1.12"
+  }
+}
