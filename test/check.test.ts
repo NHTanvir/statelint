@@ -3,7 +3,7 @@ import { describe, test } from "node:test";
 import { exitCodeFor } from "../src/commands/check.js";
 import { renderMarkdown, renderText } from "../src/check/report.js";
 import { RULES } from "../src/check/rules.js";
-import { runCheck, selectRules, type CheckReport } from "../src/check/runner.js";
+import { runCheck, selectRules, waitForServer, type CheckReport } from "../src/check/runner.js";
 import { computeScore, NON_CONFORMANT_CAP } from "../src/check/score.js";
 import { FAULTS, type FaultInfo } from "../src/fixtures/faults.js";
 import { inProcessFetch } from "../src/fixtures/node-adapter.js";
@@ -123,6 +123,22 @@ describe("inconclusive checks", () => {
     const r = await runCheck(URL_, { fetch: down, ...FAST });
     assert.match(r.inconclusive ?? "", /Could not reach/);
     assert.equal(exitCodeFor(r, { strict: false }), 2);
+  });
+  test("--wait polls until the server answers, and gives up at the deadline", async () => {
+    let calls = 0;
+    const late = (async () => {
+      calls++;
+      if (calls < 3) throw new TypeError("fetch failed");
+      return new Response(null, { status: 405 });
+    }) as unknown as typeof fetch;
+    assert.equal(await waitForServer(URL_, late, 5_000), true);
+    assert.equal(calls, 3);
+    const never = (async () => {
+      throw new TypeError("fetch failed");
+    }) as unknown as typeof fetch;
+    const started = Date.now();
+    assert.equal(await waitForServer(URL_, never, 300), false);
+    assert.ok(Date.now() - started < 2_000);
   });
   test("forwards user headers on every request", async () => {
     const server = createReferenceServer({});

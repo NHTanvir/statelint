@@ -55,6 +55,8 @@ export interface RuleDef {
   sep?: number;
   /** Matching check ids in the official @modelcontextprotocol/conformance suite. */
   official?: string[];
+  /** How Statelint tests it, in one sentence (docs and `statelint rules --verbose`). */
+  how: string;
   evaluate(ctx: CheckContext): Verdict;
 }
 
@@ -167,6 +169,7 @@ export const RULES: readonly RuleDef[] = [
   {
     id: "no-handshake",
     title: "Serves requests without the initialize handshake",
+    how: "Sends server/discover (then tools/list, prompts/list, resources/list) as the very first request, with the per-request _meta envelope and no initialize or session.",
     category: "Stateless core",
     level: "must",
     spec: SPEC.statelessness,
@@ -205,6 +208,7 @@ export const RULES: readonly RuleDef[] = [
   {
     id: "server-discover",
     title: "Implements server/discover",
+    how: "Calls server/discover and checks supportedVersions (a string array that includes 2026-07-28) and capabilities.",
     category: "Stateless core",
     level: "must",
     spec: SPEC.discover,
@@ -241,6 +245,7 @@ export const RULES: readonly RuleDef[] = [
   {
     id: "no-session-id",
     title: "Never issues Mcp-Session-Id on 2026-07-28 responses",
+    how: "Looks for an Mcp-Session-Id header on every response to a 2026-07-28 request.",
     category: "Stateless core",
     level: "should",
     spec: SPEC.legacyTraffic,
@@ -263,6 +268,7 @@ export const RULES: readonly RuleDef[] = [
   {
     id: "session-id-ignored",
     title: "Ignores an Mcp-Session-Id sent by an older client",
+    how: "Repeats a working request with Mcp-Session-Id: statelint-probe-not-a-session and expects it to be served normally.",
     category: "Stateless core",
     level: "should",
     spec: SPEC.legacyTraffic,
@@ -282,6 +288,7 @@ export const RULES: readonly RuleDef[] = [
   {
     id: "legacy-methods-405",
     title: "Answers GET and DELETE with 405 Method Not Allowed",
+    how: "Sends GET and DELETE to the endpoint and expects 405 Method Not Allowed with Allow: POST.",
     category: "Stateless core",
     level: "should",
     spec: SPEC.legacyTraffic,
@@ -316,6 +323,7 @@ export const RULES: readonly RuleDef[] = [
   {
     id: "initialize-names-versions",
     title: "Tells a legacy initialize which versions it supports",
+    how: "Sends a 2025-11-25 initialize (no envelope, no MCP headers) and expects either a successful dual-era answer or an error that names 2026-07-28.",
     category: "Stateless core",
     level: "should",
     spec: SPEC.backwardCompat,
@@ -344,6 +352,7 @@ export const RULES: readonly RuleDef[] = [
   {
     id: "version-header-required",
     title: "Rejects a request without MCP-Protocol-Version",
+    how: "Sends a valid request without MCP-Protocol-Version and expects HTTP 400.",
     category: "Header/body agreement (SEP-2243)",
     level: "must",
     spec: SPEC.versionHeader,
@@ -379,6 +388,7 @@ export const RULES: readonly RuleDef[] = [
   {
     id: "version-header-match",
     title: "Rejects an MCP-Protocol-Version that contradicts _meta",
+    how: "Sends MCP-Protocol-Version: 2025-11-25 with a 2026-07-28 _meta envelope and expects HTTP 400.",
     category: "Header/body agreement (SEP-2243)",
     level: "must",
     spec: SPEC.versionHeader,
@@ -394,6 +404,7 @@ export const RULES: readonly RuleDef[] = [
   {
     id: "method-header-required",
     title: "Rejects a request without Mcp-Method",
+    how: "Sends a valid request without Mcp-Method and expects HTTP 400.",
     category: "Header/body agreement (SEP-2243)",
     level: "must",
     spec: SPEC.standardHeaders,
@@ -409,6 +420,7 @@ export const RULES: readonly RuleDef[] = [
   {
     id: "method-header-match",
     title: "Rejects an Mcp-Method that does not match the body (case-sensitive)",
+    how: "Sends Mcp-Method: tools/list on a server/discover body, and Mcp-Method: SERVER/DISCOVER on a server/discover body, and expects HTTP 400 for both.",
     category: "Header/body agreement (SEP-2243)",
     level: "must",
     spec: SPEC.serverValidation,
@@ -444,6 +456,7 @@ export const RULES: readonly RuleDef[] = [
   {
     id: "name-header-required",
     title: "Rejects tools/call, resources/read and prompts/get without Mcp-Name",
+    how: "Sends tools/call (or prompts/get, resources/read) for a made-up target without Mcp-Name and expects HTTP 400.",
     category: "Header/body agreement (SEP-2243)",
     level: "must",
     spec: SPEC.standardHeaders,
@@ -461,6 +474,7 @@ export const RULES: readonly RuleDef[] = [
   {
     id: "name-header-match",
     title: "Rejects an Mcp-Name that does not match params.name or params.uri",
+    how: "Sends tools/call, prompts/get and resources/read whose Mcp-Name names a different made-up target than the body and expects HTTP 400 for each.",
     category: "Header/body agreement (SEP-2243)",
     level: "must",
     spec: SPEC.serverValidation,
@@ -488,6 +502,7 @@ export const RULES: readonly RuleDef[] = [
   {
     id: "name-header-base64",
     title: "Decodes a Base64-sentinel Mcp-Name before comparing",
+    how: "Sends a non-ASCII made-up name in the body and its =?base64?…?= form in Mcp-Name and expects it not to be rejected as a mismatch.",
     category: "Header/body agreement (SEP-2243)",
     level: "must",
     spec: SPEC.valueEncoding,
@@ -512,6 +527,7 @@ export const RULES: readonly RuleDef[] = [
   {
     id: "header-error-code",
     title: "Uses -32020 HeaderMismatch for every header rejection",
+    how: "Checks that every header rejection above carries the JSON-RPC error code -32020 (HeaderMismatch).",
     category: "Header/body agreement (SEP-2243)",
     level: "must",
     spec: SPEC.serverValidation,
@@ -536,6 +552,7 @@ export const RULES: readonly RuleDef[] = [
   {
     id: "x-mcp-header-valid",
     title: "Lists only valid x-mcp-header annotations",
+    how: "Validates every x-mcp-header annotation in tools/list: non-empty RFC 9110 token, unique, on a string, integer or boolean parameter reached only through `properties`.",
     category: "Header/body agreement (SEP-2243)",
     level: "must",
     spec: SPEC.xMcpHeader,
@@ -567,6 +584,7 @@ export const RULES: readonly RuleDef[] = [
   {
     id: "x-mcp-header-no-secrets",
     title: "Does not mirror secrets or personal data into headers",
+    how: "Flags x-mcp-header annotations on parameters named like passwords, keys, tokens, sessions or personal data.",
     category: "Header/body agreement (SEP-2243)",
     level: "should",
     spec: SPEC.xMcpHeader,
@@ -591,6 +609,7 @@ export const RULES: readonly RuleDef[] = [
   {
     id: "unsupported-version",
     title: "Rejects an unknown protocol version with -32022 and the supported list",
+    how: "Sends protocol version 1999-01-01 and expects HTTP 400 with -32022, data.supported (including 2026-07-28) and data.requested.",
     category: "Versions and errors",
     level: "must",
     spec: SPEC.versionNegotiation,
@@ -623,6 +642,7 @@ export const RULES: readonly RuleDef[] = [
   {
     id: "meta-required",
     title: "Rejects a request whose _meta lacks clientCapabilities",
+    how: "Sends a request whose _meta has no clientCapabilities and expects HTTP 400 with -32602.",
     category: "Versions and errors",
     level: "must",
     spec: SPEC.meta,
@@ -641,6 +661,7 @@ export const RULES: readonly RuleDef[] = [
   {
     id: "unknown-method-404",
     title: "Answers an unknown method with 404 and -32601",
+    how: "Calls statelint/probe-unknown-method and expects HTTP 404 with -32601.",
     category: "Versions and errors",
     level: "must",
     spec: SPEC.versionHeader,
@@ -662,6 +683,7 @@ export const RULES: readonly RuleDef[] = [
   {
     id: "error-id-echo",
     title: "Error responses carry the request's id",
+    how: "Checks that every error response to a request carries that request's JSON-RPC id.",
     category: "Versions and errors",
     level: "must",
     spec: `${SPEC.results.replace("#result-responses", "#error-responses")}`,
@@ -686,6 +708,7 @@ export const RULES: readonly RuleDef[] = [
   {
     id: "resource-not-found-code",
     title: "Reports a missing resource with -32602, not the retired -32002",
+    how: "Reads statelint://probe/does-not-exist and expects error -32602, not the retired -32002 or an empty contents array.",
     category: "Versions and errors",
     level: "must",
     spec: SPEC.resourceErrors,
@@ -722,6 +745,7 @@ export const RULES: readonly RuleDef[] = [
   {
     id: "result-type",
     title: "Every result carries resultType",
+    how: "Checks that every result carries resultType, and that discovery and list results use \"complete\".",
     category: "Results and caching",
     level: "must",
     spec: SPEC.results,
@@ -750,6 +774,7 @@ export const RULES: readonly RuleDef[] = [
   {
     id: "cache-hints",
     title: "Discovery and list results carry ttlMs and cacheScope",
+    how: "Checks ttlMs (integer >= 0) and cacheScope (\"public\" or \"private\") on server/discover, tools/list, prompts/list, resources/list and resources/templates/list results.",
     category: "Results and caching",
     level: "must",
     spec: SPEC.caching,
@@ -792,6 +817,7 @@ export const RULES: readonly RuleDef[] = [
   {
     id: "server-info",
     title: "Identifies itself in each result's _meta",
+    how: "Checks _meta[\"io.modelcontextprotocol/serverInfo\"] with a name and version on every result.",
     category: "Results and caching",
     level: "should",
     spec: SPEC.meta,
@@ -821,6 +847,7 @@ export const RULES: readonly RuleDef[] = [
   {
     id: "tools-order",
     title: "Returns tools/list in a deterministic order",
+    how: "Calls tools/list twice and compares the order of the tools.",
     category: "Results and caching",
     level: "should",
     spec: SPEC.toolsOrder,
@@ -847,6 +874,7 @@ export const RULES: readonly RuleDef[] = [
   {
     id: "response-content-type",
     title: "Answers with application/json or text/event-stream",
+    how: "Checks that every response body is application/json (one JSON-RPC object) or text/event-stream.",
     category: "Responses: JSON and SSE",
     level: "must",
     spec: SPEC.sendingMessages,
@@ -867,6 +895,7 @@ export const RULES: readonly RuleDef[] = [
   {
     id: "sse-single-response",
     title: "Each SSE response stream carries exactly one response",
+    how: "On every SSE response, counts the JSON-RPC responses that answer the request (exactly one) and rejects non-JSON events.",
     category: "Responses: JSON and SSE",
     level: "must",
     spec: SPEC.receivingMessages,
@@ -887,6 +916,7 @@ export const RULES: readonly RuleDef[] = [
   {
     id: "sse-no-server-requests",
     title: "Sends no server-to-client requests on SSE streams",
+    how: "Looks for JSON-RPC requests (a method and an id) on every SSE stream, including subscriptions/listen.",
     category: "Responses: JSON and SSE",
     level: "must",
     spec: SPEC.receivingMessages,
@@ -907,6 +937,7 @@ export const RULES: readonly RuleDef[] = [
   {
     id: "sse-no-unrequested-logs",
     title: "Sends notifications/message only when the request set a logLevel",
+    how: "Looks for notifications/message on every SSE stream; none of Statelint's requests sets a logLevel.",
     category: "Responses: JSON and SSE",
     level: "must",
     spec: SPEC.logging,
@@ -929,6 +960,7 @@ export const RULES: readonly RuleDef[] = [
   {
     id: "sse-closes",
     title: "Closes the SSE stream after the final response",
+    how: "Waits a grace period (1500 ms by default) after the final response and checks that the stream ended.",
     category: "Responses: JSON and SSE",
     level: "should",
     spec: SPEC.receivingMessages,
@@ -947,6 +979,7 @@ export const RULES: readonly RuleDef[] = [
   {
     id: "sse-x-accel-buffering",
     title: "Starts SSE streams with X-Accel-Buffering: no",
+    how: "Checks X-Accel-Buffering: no on every SSE response, including subscriptions/listen.",
     category: "Responses: JSON and SSE",
     level: "should",
     spec: SPEC.receivingMessages,
@@ -965,6 +998,7 @@ export const RULES: readonly RuleDef[] = [
   {
     id: "subscriptions-listen",
     title: "Opens subscriptions/listen with the acknowledgment first",
+    how: "Opens subscriptions/listen for the advertised change notifications and expects notifications/subscriptions/acknowledged first, tagged with the request id.",
     category: "Responses: JSON and SSE",
     level: "must",
     spec: SPEC.subscriptions,
@@ -1020,6 +1054,7 @@ export const RULES: readonly RuleDef[] = [
   {
     id: "origin-validation",
     title: "Refuses requests from an unexpected Origin",
+    how: "Sends a request with Origin: https://statelint-probe.invalid and expects 403.",
     category: "Security",
     level: "should",
     spec: SPEC.security,
