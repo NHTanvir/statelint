@@ -34,8 +34,32 @@ function eraOf(ctx) {
         return initOk ? "dual-era" : "modern-only";
     return initOk ? "legacy" : "unknown";
 }
+/** Poll until the endpoint answers anything over HTTP, or the time is up. */
+export async function waitForServer(url, fetchImpl, waitMs) {
+    const deadline = Date.now() + waitMs;
+    for (;;) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 2_000);
+        try {
+            const res = await fetchImpl(url, { method: "GET", headers: { Accept: "text/event-stream" }, signal: controller.signal });
+            await res.body?.cancel().catch(() => undefined);
+            return true;
+        }
+        catch {
+            // Not up yet.
+        }
+        finally {
+            clearTimeout(timer);
+        }
+        if (Date.now() >= deadline)
+            return false;
+        await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+}
 export async function runCheck(url, options = {}) {
     const rules = selectRules(options.only, options.skip);
+    if (options.waitMs && options.waitMs > 0)
+        await waitForServer(url, options.fetch ?? globalThis.fetch, options.waitMs);
     const started = Date.now();
     const sendOpts = {
         fetch: options.fetch ?? globalThis.fetch,

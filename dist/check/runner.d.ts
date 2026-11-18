@@ -15,6 +15,8 @@ export interface CheckOptions {
     only?: string[];
     /** Leave these rule ids out. */
     skip?: string[];
+    /** Wait up to this long for the server to accept connections before probing, ms (for CI). */
+    waitMs?: number;
     onProbe?: (p: ProbeResponse) => void;
 }
 export interface RuleResult {
@@ -63,5 +65,7 @@ export interface CheckReport {
     }>;
 }
 export declare function selectRules(only?: string[], skip?: string[]): typeof RULES;
+/** Poll until the endpoint answers anything over HTTP, or the time is up. */
+export declare function waitForServer(url: string, fetchImpl: typeof fetch, waitMs: number): Promise<boolean>;
 export declare function runCheck(url: string, options?: CheckOptions): Promise<CheckReport>;
 export { evidenceLine };

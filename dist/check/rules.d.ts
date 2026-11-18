@@ -19,6 +19,8 @@ export interface RuleDef {
     sep?: number;
     /** Matching check ids in the official @modelcontextprotocol/conformance suite. */
     official?: string[];
+    /** How Statelint tests it, in one sentence (docs and `statelint rules --verbose`). */
+    how: string;
     evaluate(ctx: CheckContext): Verdict;
 }
 /** "POST server/discover · MCP-Protocol-Version: 2025-11-25 · Mcp-Method: server/discover". */

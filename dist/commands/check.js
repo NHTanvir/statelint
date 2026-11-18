@@ -9,6 +9,7 @@ export const CHECK_FLAGS = {
     header: { value: true, repeat: true, alias: "H" },
     timeout: { value: true },
     "close-grace": { value: true },
+    wait: { value: true },
     only: { value: true, repeat: true },
     skip: { value: true, repeat: true },
     strict: {},
@@ -35,6 +36,7 @@ Options:
       --skip <rule,...>        Leave these rules out
       --strict                 Exit 1 on SHOULD-level warnings too
       --min-score <n>          Exit 1 when the score is below n (0-100)
+      --wait <duration>        Wait for the server to come up first, e.g. 30s (for CI)
       --timeout <ms>           Per-request time limit (default 10000)
       --close-grace <ms>       How long an SSE stream may stay open after its response (default 1500)
   -v, --verbose                Show every rule's message and evidence
@@ -80,6 +82,7 @@ export async function checkCommand(argv, io) {
             headers: parseHeaders(flagList(args, "header")),
             timeoutMs: flagInt(args, "timeout", 10_000, 1),
             closeGraceMs: flagInt(args, "close-grace", 1_500, 0),
+            waitMs: flagInt(args, "wait", 0, 0),
             only: splitList(flagList(args, "only")),
             skip: splitList(flagList(args, "skip")),
             ...(io.fetch ? { fetch: io.fetch } : {}),
