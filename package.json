@@ -1,0 +1,46 @@
+{
+  "name": "@nhtanvir/statelint",
+  "version": "0.1.0",
+  "description": "Conformance linter and migration assistant for the stateless MCP 2026-07-28 specification.",
+  "license": "MIT",
+  "author": "NHTanvir",
+  "homepage": "https://github.com/NHTanvir/statelint#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NHTanvir/statelint.git"
+  },
+  "bugs": {
+    "url": "https://github.com/NHTanvir/statelint/issues"
+  },
+  "type": "module",
+  "bin": {
+    "statelint": "dist/cli.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18.17"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "build:test": "tsc -p tsconfig.test.json",
+    "test": "npm run build && npm run build:test && node --test build/test/*.test.js",
+    "typecheck": "tsc -p tsconfig.test.json --noEmit",
+    "demo": "node dist/cli.js demo"
+  },
+  "devDependencies": {
+    "@types/node": "18.19.130",
+    "typescript": "5.9.3"
+  }
+}
