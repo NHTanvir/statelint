@@ -1,0 +1,117 @@
+name: Statelint MCP 2026-07-28 Conformance Check
+description: "Check that your MCP server conforms to the stateless 2026-07-28 spec: header/body agreement (-32020), no initialize, no sessions"
+author: NHTanvir
+
+branding:
+  icon: check-circle
+  color: blue
+
+inputs:
+  url:
+    description: The MCP endpoint to check, for example http://127.0.0.1:3000/mcp. Start your server in an earlier step.
+    required: true
+  headers:
+    description: >-
+      Headers to send on every request, one "Name: value" per line, for example
+      "Authorization: Bearer <token>" from a secret.
+    required: false
+    default: ""
+  min-score:
+    description: Fail when the 0-100 score is below this. 90 or more means every MUST rule passed. Empty = fail only on MUST failures.
+    required: false
+    default: ""
+  strict:
+    description: Set to "true" to fail on SHOULD warnings as well as MUST failures.
+    required: false
+    default: "false"
+  only:
+    description: Comma-separated rule ids to run (all rules when empty).
+    required: false
+    default: ""
+  skip:
+    description: Comma-separated rule ids to leave out, for example origin-validation for a public API.
+    required: false
+    default: ""
+  wait:
+    description: How long to wait for the server to accept connections before checking, for example 30s.
+    required: false
+    default: "30s"
+  timeout:
+    description: Per-request time limit, in milliseconds.
+    required: false
+    default: "10000"
+
+outputs:
+  score:
+    description: The conformance score, 0-100.
+    value: ${{ steps.check.outputs.score }}
+  conformant:
+    description: '"true" when no MUST rule failed, otherwise "false".'
+    value: ${{ steps.check.outputs.conformant }}
+  failures:
+    description: Number of MUST rules that failed.
+    value: ${{ steps.check.outputs.failures }}
+  warnings:
+    description: Number of rules that warned.
+    value: ${{ steps.check.outputs.warnings }}
+  exit-code:
+    description: 0 conformant, 1 not conformant (or min-score/strict not met), 2 could not check.
+    value: ${{ steps.check.outputs.exit-code }}
+  report:
+    description: Path to the JSON report, with every rule's status, fix and evidence.
+    value: ${{ steps.check.outputs.report }}
+
+runs:
+  using: composite
+  steps:
+    - name: MCP 2026-07-28 conformance check (statelint check)
+      id: check
+      shell: bash
+      env:
+        SL_CLI: ${{ github.action_path }}/dist/cli.js
+        SL_URL: ${{ inputs.url }}
+        SL_HEADERS: ${{ inputs.headers }}
+        SL_MIN_SCORE: ${{ inputs.min-score }}
+        SL_STRICT: ${{ inputs.strict }}
+        SL_ONLY: ${{ inputs.only }}
+        SL_SKIP: ${{ inputs.skip }}
+        SL_WAIT: ${{ inputs.wait }}
+        SL_TIMEOUT: ${{ inputs.timeout }}
+      run: |
+        report="$RUNNER_TEMP/statelint-report.json"
+        args=(check "$SL_URL" --no-color --output "$report" --timeout "$SL_TIMEOUT" --wait "$SL_WAIT")
+        if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then args+=(--summary "$GITHUB_STEP_SUMMARY"); fi
+        while IFS= read -r line || [ -n "$line" ]; do
+          line="${line%$'\r'}"
+          if [ -n "${line//[[:space:]]/}" ]; then args+=(--header "$line"); fi
+        done <<< "$SL_HEADERS"
+        if [ -n "$SL_MIN_SCORE" ]; then args+=(--min-score "$SL_MIN_SCORE"); fi
+        if [ "$SL_STRICT" = "true" ]; then args+=(--strict); fi
+        if [ -n "$SL_ONLY" ]; then args+=(--only "$SL_ONLY"); fi
+        if [ -n "$SL_SKIP" ]; then args+=(--skip "$SL_SKIP"); fi
+
+        set +e
+        node "$SL_CLI" "${args[@]}"
+        status=$?
+        set -e
+
+        {
+          echo "exit-code=$status"
+          echo "report=$report"
+        } >> "$GITHUB_OUTPUT"
+        if [ -f "$report" ]; then
+          node -e '
+            const r = require(process.argv[1]);
+            const out = [`score=${r.score}`, `conformant=${r.conformant}`, `failures=${r.summary.fail}`, `warnings=${r.summary.warn}`];
+            require("fs").appendFileSync(process.env.GITHUB_OUTPUT, out.join("\n") + "\n");
+            const esc = (s) => String(s).replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
+            for (const rule of r.rules) {
+              if (rule.status !== "fail" && rule.status !== "warn") continue;
+              const kind = rule.status === "fail" ? "error" : "warning";
+              console.log(`::${kind} title=${esc(`statelint ${rule.id}`)}::${esc(`${rule.message} Fix: ${rule.fix ?? ""} (${rule.spec})`)}`);
+            }
+          ' "$report"
+        else
+          echo "conformant=false" >> "$GITHUB_OUTPUT"
+        fi
+        exit "$status"

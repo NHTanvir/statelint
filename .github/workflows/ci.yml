@@ -60,3 +60,43 @@ jobs:
           set -e
           test "$status" = "1"
           node -e 'const r = require("./report.json"); const f = r.rules.filter((x) => x.status === "fail").map((x) => x.id); console.log(f); if (f.join() !== "name-header-match") process.exit(1);'
+
+  action:
+    name: The GitHub Action
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Start a compliant server and one without cache hints
+        run: |
+          node dist/cli.js serve --port 4200 --quiet &
+          node dist/cli.js serve --port 4201 --quiet --fault no-cache-hints &
+      - name: Passes the compliant server
+        id: good
+        uses: ./
+        with:
+          url: http://127.0.0.1:4200/mcp
+          min-score: "100"
+      - name: Fails the server without cache hints
+        id: broken
+        continue-on-error: true
+        uses: ./
+        with:
+          url: http://127.0.0.1:4201/mcp
+      - name: The outputs say so
+        env:
+          GOOD_SCORE: ${{ steps.good.outputs.score }}
+          GOOD_CONFORMANT: ${{ steps.good.outputs.conformant }}
+          BROKEN_OUTCOME: ${{ steps.broken.outcome }}
+          BROKEN_EXIT: ${{ steps.broken.outputs.exit-code }}
+          BROKEN_SCORE: ${{ steps.broken.outputs.score }}
+          BROKEN_FAILURES: ${{ steps.broken.outputs.failures }}
+          REPORT: ${{ steps.broken.outputs.report }}
+        run: |
+          echo "good: score=$GOOD_SCORE conformant=$GOOD_CONFORMANT"
+          echo "broken: outcome=$BROKEN_OUTCOME exit=$BROKEN_EXIT score=$BROKEN_SCORE failures=$BROKEN_FAILURES"
+          test "$GOOD_SCORE" = "100" && test "$GOOD_CONFORMANT" = "true"
+          test "$BROKEN_OUTCOME" = "failure" && test "$BROKEN_EXIT" = "1" && test "$BROKEN_FAILURES" = "1"
+          node -e 'const r = require(process.argv[1]); const f = r.rules.find((x) => x.status === "fail"); console.log(f.id + ": " + f.message); if (f.id !== "cache-hints") process.exit(1);' "$REPORT"
