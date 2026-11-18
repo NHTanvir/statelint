@@ -43,7 +43,7 @@ jobs:
           node-version: 24
       - run: npm ci && npm run build
       - run: npm start &                 # your MCP server, listening on port 3000
-      - uses: NHTanvir/statelint@v0
+      - uses: NHTanvir/statelint@v0.1.0
         with:
           url: http://127.0.0.1:3000/mcp
           min-score: 90                  # 90+ always means every MUST rule passed

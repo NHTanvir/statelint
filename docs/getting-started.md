@@ -81,7 +81,7 @@ On GitHub Actions, use the Action (it adds outputs, inline annotations and a job
 
 ```yaml
       - run: npm start &                      # your MCP server
-      - uses: NHTanvir/statelint@v0
+      - uses: NHTanvir/statelint@v0.1.0
         with:
           url: http://127.0.0.1:3000/mcp
           min-score: 90
