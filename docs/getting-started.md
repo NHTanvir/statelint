@@ -77,6 +77,18 @@ MUST rules are worth 3 points and SHOULD rules 1. A passing rule earns its point
 
 ## How do I use Statelint in CI?
 
+On GitHub Actions, use the Action (it adds outputs, inline annotations and a job summary):
+
+```yaml
+      - run: npm start &                      # your MCP server
+      - uses: NHTanvir/statelint@v0
+        with:
+          url: http://127.0.0.1:3000/mcp
+          min-score: 90
+```
+
+The inputs and outputs are listed in the [README](../README.md#how-do-i-run-the-conformance-check-in-github-actions). Anywhere else, run the CLI:
+
 ```yaml
 jobs:
   mcp-conformance:

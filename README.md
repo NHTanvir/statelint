@@ -25,6 +25,42 @@ npx github:NHTanvir/statelint migrate .                          # what to chang
 
 Statelint is an open-source conformance linter and migration assistant for the stateless Model Context Protocol revision **2026-07-28**. `statelint check` sends at most 28 safe requests to a running MCP server and grades it on **33 rules** (23 MUST, 10 SHOULD) taken from the specification text, including the header/body agreement rule that returns `-32020 HeaderMismatch`. `statelint migrate` reads a 2025-11-25 server's code, lists exactly what must change to go stateless, and rewrites what it can prove safe. It is deterministic (no LLM), has zero runtime dependencies, and runs on Node.js 18 or later.
 
+## How do I run the conformance check in GitHub Actions?
+
+Add Statelint's Action after the step that starts your server. It waits for the endpoint (up to `wait`, default 30s), runs every rule, writes a table to the job summary, annotates each failure with its fix, and fails the job when a MUST rule fails:
+
+```yaml
+name: MCP 2026-07-28 conformance
+on: [push, pull_request]
+
+jobs:
+  statelint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: npm ci && npm run build
+      - run: npm start &                 # your MCP server, listening on port 3000
+      - uses: NHTanvir/statelint@v0
+        with:
+          url: http://127.0.0.1:3000/mcp
+          min-score: 90                  # 90+ always means every MUST rule passed
+```
+
+| Input | Default | What it does |
+| --- | --- | --- |
+| `url` | (required) | The MCP endpoint, for example `http://127.0.0.1:3000/mcp`. |
+| `headers` | | Extra headers, one `Name: value` per line, for example `Authorization: Bearer ${{ secrets.MCP_TOKEN }}`. |
+| `min-score` | | Fail below this score. Empty: fail only on MUST failures. |
+| `strict` | `false` | Fail on SHOULD warnings too. |
+| `only` / `skip` | | Comma-separated rule ids to run or leave out. |
+| `wait` | `30s` | How long to wait for the server to start accepting connections. |
+| `timeout` | `10000` | Per-request limit in milliseconds. |
+
+Outputs: `score`, `conformant`, `failures`, `warnings`, `exit-code` and `report` (the path to the JSON report). Not on GitHub Actions? The CLI does the same anywhere: `npx github:NHTanvir/statelint check http://127.0.0.1:3000/mcp --wait 30s --min-score 90`.
+
 ## What is stateless MCP (2026-07-28)?
 
 Stateless MCP is the [2026-07-28 revision](https://modelcontextprotocol.io/specification/2026-07-28) of the Model Context Protocol, in which "all the information needed to process a request is contained in the request itself". It removed the `initialize` handshake and protocol sessions (`Mcp-Session-Id`), so any request can reach any server instance behind a plain load balancer. Every request now carries its protocol version and client capabilities in `params._meta`, and every Streamable HTTP POST mirrors its method and target into the `MCP-Protocol-Version`, `Mcp-Method` and `Mcp-Name` headers, which servers must check against the body ([SEP-2575](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2575), [SEP-2567](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2567), [SEP-2243](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2243)).
@@ -155,18 +191,17 @@ They answer different questions, and you can use both. Statelint is a black-box 
 | Rewrites the TypeScript transport to `createMcpHandler` | yes, with refusals | no | no (agent skill) | no | no (renames only) |
 | Offline demo and broken fixtures | 35, one per rule | reference fixtures | live web demo | fixtures | n/a |
 
-If your goal is "is my server on the new protocol at all", mcp-migration-check's ecosystem scan is a good read: its [2026-08-23 snapshot](https://mcp-migration-check.alpaycelik.workers.dev/state-of-mcp) found that 60.1% of 10,890 gradable public MCP servers still served only the legacy protocol. Statelint answers the next question: once a server says it speaks 2026-07-28, does it enforce the rules that keep gateways and servers in agreement?
+The closest Action on the Marketplace, [MCP Stateless Check](https://github.com/marketplace/actions/mcp-stateless-check), probes a running server for 2026-07-28 readiness over stdio and HTTP (21 rules). Its header rule checks that a server *accepts* `Mcp-Method` and `Mcp-Name`; Statelint checks that it *rejects* missing and contradicting ones with `-32020`, and Statelint checks HTTP servers only. If your goal is "is my server on the new protocol at all", mcp-migration-check's ecosystem scan is a good read: its [2026-08-23 snapshot](https://mcp-migration-check.alpaycelik.workers.dev/state-of-mcp) found that 60.1% of 10,890 gradable public MCP servers still served only the legacy protocol. Statelint answers the next question: once a server says it speaks 2026-07-28, does it enforce the rules that keep gateways and servers in agreement?
 
-## Use it in CI
+## Use it in any CI
 
-`statelint check` exits non-zero when a MUST rule fails, so any CI system can gate on it:
+`statelint check` exits non-zero when a MUST rule fails, so any CI system can gate on it, with or without the GitHub Action above:
 
-```yaml
-- run: npm start &                              # start your MCP server in the background
-- run: npx github:NHTanvir/statelint check http://127.0.0.1:3000/mcp --wait 30s --min-score 90 --summary "$GITHUB_STEP_SUMMARY"
+```bash
+npx github:NHTanvir/statelint check http://127.0.0.1:3000/mcp --wait 30s --min-score 90 --json > statelint.json
 ```
 
-`--json` prints the full report (every rule's status, message, fix, evidence and the probes sent), and `statelint migrate . --json` fails while required migration steps remain.
+`--json` prints the full report (every rule's status, message, fix, evidence and the requests sent), and `statelint migrate . --json` fails while required migration steps remain.
 
 ## Rules
 
