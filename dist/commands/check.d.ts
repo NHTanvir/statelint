@@ -1,0 +1,10 @@
+import { type CheckReport } from "../check/runner.js";
+import { type FlagSpec } from "../util/args.js";
+import { type CliIO } from "./shared.js";
+export declare const CHECK_FLAGS: Record<string, FlagSpec>;
+export declare const CHECK_HELP = "Usage: statelint check <url> [options]\n\nCheck a running MCP server against the stateless 2026-07-28 specification: no initialize\nhandshake, no Mcp-Session-Id, MCP-Protocol-Version / Mcp-Method / Mcp-Name required and in\nagreement with the body (-32020 HeaderMismatch), server/discover, cache hints, JSON and SSE\nresponses. Probes never call a real tool or read a real resource.\n\nOptions:\n  -H, --header \"Name: value\"   Send a header on every request (repeatable), e.g. Authorization\n      --json                   Print the report as JSON (for CI)\n  -o, --output <file>          Also write the report: .json, .md, or anything else as text\n      --summary <file>         Append a Markdown summary (use $GITHUB_STEP_SUMMARY)\n      --only <rule,...>        Run only these rules (repeatable or comma-separated)\n      --skip <rule,...>        Leave these rules out\n      --strict                 Exit 1 on SHOULD-level warnings too\n      --min-score <n>          Exit 1 when the score is below n (0-100)\n      --timeout <ms>           Per-request time limit (default 10000)\n      --close-grace <ms>       How long an SSE stream may stay open after its response (default 1500)\n  -v, --verbose                Show every rule's message and evidence\n  -q, --quiet                  Print only the verdict line\n      --no-color               Plain output\n\nExit codes: 0 conformant, 1 not conformant (or --strict / --min-score not met), 2 could not check.";
+export declare function exitCodeFor(report: CheckReport, opts: {
+    strict: boolean;
+    minScore?: number;
+}): number;
+export declare function checkCommand(argv: string[], io: CliIO): Promise<number>;
