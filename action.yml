@@ -1,9 +1,9 @@
-name: Statelint MCP 2026-07-28 Conformance Check
-description: "Check that your MCP server conforms to the stateless 2026-07-28 spec: header/body agreement (-32020), no initialize, no sessions"
+name: Stateless MCP Conformance Linter (2026-07-28)
+description: "Fail CI when your MCP server ignores Mcp-Method/Mcp-Name header mismatches (-32020) or needs initialize/Mcp-Session-Id"
 author: NHTanvir
 
 branding:
-  icon: check-circle
+  icon: shield
   color: blue
 
 inputs:
