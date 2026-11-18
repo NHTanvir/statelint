@@ -85,7 +85,7 @@ export function renderMigrationText(r: MigrationReport, c: Palette, opts: Migrat
   const s = r.summary;
   const tail =
     r.written.length > 0
-      ? c.green(`Wrote ${r.written.length} file(s): ${r.written.join(", ")}. ${s.remainingRequired} required change(s) remain.`)
+      ? c.green(`Wrote ${r.written.length} file(s): ${r.written.join(", ")}. ${s.requiredAfterRewrite} required change(s) remain.`)
       : s.autoFixable > 0
         ? `${s.autoFixable} of ${r.findings.length} finding(s) can be fixed automatically: ${c.bold("statelint migrate <path> --diff")} to review, ${c.bold("--write")} to apply.`
         : `${s.required} required, ${s.recommended} recommended, ${s.info} info.`;

@@ -39,12 +39,14 @@ export async function migrateCommand(argv: string[], io: CliIO): Promise<number>
   const path = args.positionals[0] ?? ".";
   if (!existsSync(path) || !statSync(path).isDirectory()) throw new UsageError(`not a directory: ${path}`);
 
-  const report = runMigrate(path, { write: flagBool(args, "write") });
+  const write = flagBool(args, "write");
+  const report = runMigrate(path, { write });
   const c = paletteFor(io, args.flags.get("color") as boolean | undefined);
   if (flagBool(args, "json")) io.out(JSON.stringify(report, null, 2));
   else io.out(renderMigrationText(report, c, { diff: flagBool(args, "diff"), limit: flagBool(args, "all") ? 0 : 12 }));
 
   const output = flagString(args, "output");
   if (output) writeFileSync(output, `${JSON.stringify(report, null, 2)}\n`, "utf8");
-  return report.summary.remainingRequired > 0 ? EXIT.findings : EXIT.ok;
+  const open = write ? report.summary.requiredAfterRewrite : report.summary.required;
+  return open > 0 ? EXIT.findings : EXIT.ok;
 }

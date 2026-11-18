@@ -45,7 +45,8 @@ export interface MigrationReport {
   remaining: Finding[];
   plan: string[];
   written: string[];
-  summary: Record<Severity, number> & { autoFixable: number; remainingRequired: number };
+  /** `required` counts findings now; `requiredAfterRewrite` counts what is left once the codemods are applied. */
+  summary: Record<Severity, number> & { autoFixable: number; requiredAfterRewrite: number };
 }
 
 const key = (f: Finding) => `${f.rule}|${f.file ?? ""}`;
@@ -158,13 +159,12 @@ export function migrateProject(project: ProjectInfo, path: string, options: Migr
     }
   }
 
-  const effective = options.write ? after : findings;
   const summary = {
     required: findings.filter((f) => f.severity === "required").length,
     recommended: findings.filter((f) => f.severity === "recommended").length,
     info: findings.filter((f) => f.severity === "info").length,
     autoFixable: marked.filter((f) => f.fixedByCodemod).length,
-    remainingRequired: effective.filter((f) => f.severity === "required").length,
+    requiredAfterRewrite: after.filter((f) => f.severity === "required").length,
   };
   const noMcp =
     findings.length === 0 &&

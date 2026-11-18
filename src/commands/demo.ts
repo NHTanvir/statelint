@@ -38,7 +38,14 @@ Options:
 export const DEMO_URL = "http://statelint.demo/mcp";
 const SPOTLIGHT = "method-header-unchecked";
 
+/** The bundled example, found by walking up from this module (works from dist/ and build/src/). */
 export function exampleProjectPath(): string {
+  let dir = new URL("./", import.meta.url);
+  for (let i = 0; i < 5; i++) {
+    const candidate = new URL("examples/stateful-notes-server/", dir);
+    if (existsSync(fileURLToPath(candidate))) return fileURLToPath(candidate);
+    dir = new URL("../", dir);
+  }
   return fileURLToPath(new URL("../../examples/stateful-notes-server/", import.meta.url));
 }
 
