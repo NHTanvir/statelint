@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [18, 20, 22, 24]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Offline demo (in-process servers, no network)
+        run: node dist/cli.js demo --no-color
+      - name: Committed dist/ matches the sources
+        run: |
+          npm run build
+          git diff --exit-code -- dist/ || { echo "::error::dist/ is stale: run npm run build and commit it"; exit 1; }
+
+  wire:
+    name: Real HTTP against the reference server
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Start a compliant server and one that ignores Mcp-Name mismatches
+        run: |
+          node dist/cli.js serve --port 4100 --quiet &
+          node dist/cli.js serve --port 4101 --quiet --fault name-header-unchecked &
+          for port in 4100 4101; do
+            for i in $(seq 1 50); do
+              code=$(curl -s -o /dev/null -w '%{http_code}' -X GET "http://127.0.0.1:$port/mcp" || true)
+              [ "$code" = "405" ] && break
+              sleep 0.2
+            done
+          done
+      - name: The compliant server scores 100
+        run: node dist/cli.js check http://127.0.0.1:4100/mcp --no-color --min-score 100
+      - name: The broken server fails exactly name-header-match
+        run: |
+          set +e
+          node dist/cli.js check http://127.0.0.1:4101/mcp --json > report.json
+          status=$?
+          set -e
+          test "$status" = "1"
+          node -e 'const r = require("./report.json"); const f = r.rules.filter((x) => x.status === "fail").map((x) => x.id); console.log(f); if (f.join() !== "name-header-match") process.exit(1);'
