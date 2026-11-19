@@ -259,6 +259,50 @@ describe("codemod: http-entry", () => {
   });
 });
 
+// Verbatim output of `npx @modelcontextprotocol/codemod@2.4.0 v1-to-v2 .` on the SDK README's sessionful server.
+const OFFICIAL_CODEMOD_OUTPUT = `import express from 'express';
+import { randomUUID } from 'node:crypto';
+import { NodeStreamableHTTPServerTransport } from "@modelcontextprotocol/node";
+import { McpServer, isInitializeRequest } from "@modelcontextprotocol/server";
+import { z } from 'zod';
+function getServer() {
+  const server = new McpServer({ name: 'v1-notes', version: '1.0.0' });
+  server.registerTool('add', { inputSchema: z.object({ a: z.number(), b: z.number() }) }, async ({ a, b }) => ({ content: [{ type: 'text', text: String(a + b) }] }));
+  return server;
+}
+const app = express(); app.use(express.json());
+const transports = {};
+app.post('/mcp', async (req, res) => {
+  const sessionId = req.headers['mcp-session-id'];
+  let transport;
+  if (sessionId && transports[sessionId]) transport = transports[sessionId];
+  else if (!sessionId && isInitializeRequest(req.body)) {
+    transport = new NodeStreamableHTTPServerTransport({ sessionIdGenerator: () => randomUUID(), onsessioninitialized: (id) => { transports[id] = transport; } });
+    await getServer().connect(transport);
+  } else { res.status(400).json({ jsonrpc: '2.0', error: { code: -32000, message: 'Bad Request: No valid session ID provided' }, id: null }); return; }
+  await transport.handleRequest(req, res, req.body);
+});
+app.listen(Number(process.env.PORT), '127.0.0.1');
+`;
+
+describe("codemod: http-entry on the official codemod's output", () => {
+  test("accepts brace-less if branches and rewrites the route", () => {
+    const f = ts(OFFICIAL_CODEMOD_OUTPUT, "src/server.mjs");
+    const o = httpEntry(f, project(f));
+    assert.equal(o.status, "rewritten", o.reason);
+    assert.match(o.newText!, /const mcpHandler = createMcpHandler\(\(\) => getServer\(\)\);/);
+    assert.ok(!o.newText!.includes("transports"));
+    assert.ok(balanced(o.newText!));
+  });
+  test("still refuses unrelated logic in a brace-less branch", () => {
+    const src = OFFICIAL_CODEMOD_OUTPUT.replace("transport = transports[sessionId];", "metrics.hit(sessionId);");
+    const f = ts(src, "src/server.mjs");
+    const o = httpEntry(f, project(f));
+    assert.equal(o.status, "refused");
+    assert.match(o.reason ?? "", /metrics\.hit/);
+  });
+});
+
 describe("codemod: stdio-entry", () => {
   test("rewrites a factory call", () => {
     const src = "import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';\nimport { buildServer } from './b.js';\n\nawait buildServer().connect(new StdioServerTransport());\n";

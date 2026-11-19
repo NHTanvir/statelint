@@ -140,6 +140,20 @@ describe("inconclusive checks", () => {
     assert.equal(await waitForServer(URL_, never, 300), false);
     assert.ok(Date.now() - started < 2_000);
   });
+  test("a server that rejects 2026-07-28 as unsupported is diagnosed as such, not as needing a handshake", async () => {
+    const old: FetchHandler = async (req) => {
+      if (req.method !== "POST") return new Response(null, { status: 405 });
+      return new Response(
+        JSON.stringify({ jsonrpc: "2.0", id: null, error: { code: -32000, message: "Bad Request: Unsupported protocol version: 2026-07-28 (supported versions: 2025-11-25, 2025-06-18)" } }),
+        { status: 400, headers: { "Content-Type": "application/json" } },
+      );
+    };
+    const r = await runCheck(URL_, { fetch: inProcessFetch(old), ...FAST });
+    const rule = r.rules.find((x) => x.id === "no-handshake")!;
+    assert.equal(rule.status, "fail");
+    assert.match(rule.message, /refused 2026-07-28 itself/);
+    assert.doesNotMatch(rule.message, /initialize handshake/);
+  });
   test("forwards user headers on every request", async () => {
     const server = createReferenceServer({});
     let withAuth = 0;

@@ -185,6 +185,14 @@ export const RULES: readonly RuleDef[] = [
       }
       const tried = ctx.order.map((n) => ctx.probes[n] as ProbeResponse).filter((p) => !LEGACY_PROBES.includes(p.name) && p.request.method === "POST" && p.name !== PROBE.origin);
       const evidence = tried.map(evidenceLine);
+      const unsupported = tried.find((p) => /unsupported protocol version/i.test(`${errorOf(p.response)?.message ?? ""} ${p.bodyText}`));
+      if (unsupported && !(ok(probe(ctx, PROBE.initialize)) && probe(ctx, PROBE.initialize)?.headers["mcp-session-id"])) {
+        return violation(
+          `The server refused 2026-07-28 itself: ${describeResponse(unsupported)}. It does not speak the stateless revision yet.`,
+          "Serve 2026-07-28. On the TypeScript SDK the v1 package (@modelcontextprotocol/sdk, even in stateless mode with sessionIdGenerator: undefined) speaks only 2025-era versions: move to the v2 packages and serve the endpoint with createMcpHandler(factory) from @modelcontextprotocol/server. Run `statelint migrate <path>` to find every place to change.",
+          evidence,
+        );
+      }
       const sessionish = tried.find((p) => {
         const e = errorOf(p.response);
         return (e && (SESSION_SIGNAL.test(e.message) || e.code === -32000)) || SESSION_SIGNAL.test(p.bodyText);
