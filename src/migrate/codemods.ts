@@ -207,9 +207,16 @@ function checkBoilerplate(p: Parsed, open: number, b: Boilerplate): void {
         } else if (isIdent(t[k], "else") || isIdent(t[k], "if")) {
           if (isIdent(t[k], "if")) k = p.pairs.get(k + 1) as number;
         } else {
-          // Single-statement branch: accept return / res.* only.
-          if (!(isIdent(t[k], "return") || isIdent(t[k], b.res))) b.problems.push(`line ${(t[k] as Token).line + 1}: unexpected statement in an if branch`);
-          while (k < s.to && !isPunct(t[k], ";")) k++;
+          // Brace-less branch (`if (x) transport = map[id];`): same rules as a statement in a block.
+          let end = k;
+          while (end < s.to && !isPunct(t[end], ";") && !isIdent(t[end + 1], "else")) {
+            const partner = p.pairs.get(end);
+            end = partner !== undefined && partner > end ? partner + 1 : end + 1;
+          }
+          if (!simpleStatementOk(p, { from: k, to: end }, b)) {
+            b.problems.push(`line ${(t[k] as Token).line + 1}: \`${tokText(p, k, Math.min(end, k + 12)).replace(/\s+/g, " ").slice(0, 70)}\` is not session/transport handling`);
+          }
+          k = end;
         }
       }
       continue;
@@ -240,6 +247,23 @@ function checkBoilerplate(p: Parsed, open: number, b: Boilerplate): void {
     if (first.type === "ident" && (b.names.has(first.value) || first.value === b.res || first.value === "console")) continue;
     b.problems.push(`line ${line}: \`${show()}\` is not session/transport handling`);
   }
+}
+
+/** One simple (non-compound) statement of transport/session plumbing. */
+function simpleStatementOk(p: Parsed, s: Stmt, b: Boilerplate): boolean {
+  const t = p.tokens;
+  const first = t[s.from] as Token;
+  const refs = () => {
+    for (let k = s.from; k <= s.to; k++) {
+      const tok = t[k] as Token;
+      if (tok.type === "ident" && b.names.has(tok.value) && !isPunct(t[k - 1], ".")) return true;
+      if (tok.type === "string" && /mcp-session-id/i.test(tok.value)) return true;
+    }
+    return false;
+  };
+  if (isIdent(first, "return")) return true;
+  if ((isIdent(first, "await") || isIdent(first, "delete")) && refs()) return true;
+  return first.type === "ident" && (b.names.has(first.value) || first.value === b.res || first.value === "console");
 }
 
 function importOf(imports: ImportDecl[], local: string): ImportDecl | undefined {
