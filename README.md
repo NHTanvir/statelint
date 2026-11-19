@@ -263,6 +263,11 @@ console.log(report.score, report.conformant, report.rules.filter((r) => r.status
 
 `statelint serve --fault <id>` runs the bundled reference server with exactly one rule broken (35 faults; `statelint serve --help` lists them), and `statelint demo --fault <id>` prints its full report.
 
+## Further reading
+
+- [Stateless MCP (2026-07-28): How to Migrate](https://naymul.com/migrate-mcp-server-stateless-2026-07-28/), a walkthrough with measured results on the official TypeScript SDK: the v1 README server scores 18/100, and 99/100 after the official codemod plus `statelint migrate --write`.
+- [Stateless MCP Conformance Linter (2026-07-28)](https://github.com/marketplace/actions/stateless-mcp-conformance-linter-2026-07-28) on the GitHub Marketplace.
+
 ## Sources
 
 Statelint's rules come from the [2026-07-28 specification](https://modelcontextprotocol.io/specification/2026-07-28), its [changelog](https://modelcontextprotocol.io/specification/2026-07-28/changelog) and [`schema.ts`](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/schema/2026-07-28/schema.ts), the SEPs ([2575](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2575), [2567](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2567), [2243](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2243), [2549](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2549), [2322](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2322)), and the TypeScript SDK's [2026-07-28 migration guide](https://github.com/modelcontextprotocol/typescript-sdk/blob/main/docs/migration/support-2026-07-28.md). Every claim is traced to its source in [docs/RESEARCH.md](docs/RESEARCH.md).
